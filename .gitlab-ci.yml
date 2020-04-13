@@ -1,0 +1,47 @@
+image: "registry.michelada.io/products/hagotarea:latest"
+
+services:
+  - postgres
+  - redis
+
+stages:
+  - lint
+  - test
+
+variables:
+  DB_HOST: postgres
+  DB_USER: postgres
+  DB_PASSWORD: "password"
+  DATABASE_USERNAME: postgres
+  POSTGRES_PASSWORD: "password"
+
+cache:
+  paths:
+    - vendor/ruby
+    - node_modules
+
+before_script:
+  - ruby -v
+  - rm -rf vendor/ruby/2.7.1/cache/bundler/git || true
+  - gem install bundler
+  - bundle install -j $(nproc) --path vendor --full-index --clean
+
+lint:
+  stage: lint
+  script:
+    - bundle exec rubocop
+    - npx sass-lint -c .sass-lint.yml 'app/javascript/**/*.scss' -v -q
+    - npx eslint -c .eslintrc.json app/javascript/**
+
+test:
+  stage: test
+  script:
+    - bundle exec rake yarn:install
+    - RAILS_ENV=test bundle exec rake db:create db:schema:load
+    - RAILS_ENV=test bundle exec rails test
+
+  artifacts:
+    paths:
+      - coverage/
+      - tmp/screenshots
+
